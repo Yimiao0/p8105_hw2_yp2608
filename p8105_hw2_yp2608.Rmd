@@ -1,0 +1,187 @@
+---
+title: "Homework 2"
+author: Yimiao Pang
+data: October 9, 2021
+output: github_document
+---
+
+```{r setup, message=FALSE}
+library(readxl)
+library(dplyr)
+
+library(readr)
+library(tidyr)
+
+library(tidyverse)
+```
+
+
+
+## Problem 1
+
+the Mr. Trash Wheel sheet
+
+```{r, message=FALSE, collapse=TRUE}
+# read in
+tw_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "Mr. Trash Wheel")
+
+# clean_name
+tw_df = janitor::clean_names(tw_df)
+
+# omit rows that do not include dumpster-specific data
+tw_df = filter(tw_df, dumpster >= 1 & dumpster != "Grand Total")
+
+# round
+tw_df = mutate(tw_df, sports_balls = round(sports_balls))
+```
+
+2018 & 2019 Precipitation
+
+```{r, message=FALSE, collapse=TRUE}
+# read in
+p18_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2018 Precipitation", range = "A2:B14")
+p19_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2019 Precipitation", range = "A2:B14")
+
+# omit rows without precipitation data
+p18_df = filter(p18_df, Total >= 0)
+p19_df = filter(p19_df, Total >= 0)
+
+# add a variable for year
+p18_df = mutate(p18_df, Year = 2018)
+p19_df = mutate(p19_df, Year = 2019)
+
+# combine 2018 & 2019
+p_df = merge(p18_df, p19_df, all = TRUE)
+p_df = arrange(p_df, Year, Month)
+p_df = mutate(p_df, Month = month.name[Month])
+```
+
+```{r, message=FALSE}
+# filter -- trash wheel 2019
+tw2019_df = filter(tw_df, year == 2019)
+```
+
+There are `r nrow(p18_df)` rows in precipitation data for 2018 and `r nrow(p19_df)` rows for 2019. The variables include year, month and total. For example, in precipitation data for 2018, the year variable is 2018, the month variable includes 12 months in a year and the total variable is the total number of precipitation for a specific month. The total precipitation in 2018 is `r sum(p18_df$Total)`, and the median number of sports balls in a dumpster in 2019 is `r median(tw2019_df$sports_balls)`.
+
+
+## Problem 2
+
+```{r 2.1, message=FALSE, collapse=TRUE}
+pols_df = read_csv("./data/fivethirtyeight_datasets/pols-month.csv") %>%
+  separate(col = mon, into = c("year", "month", "day")) %>%
+  mutate(month = month.name[as.numeric(month)],
+         president = recode(prez_gop, '0' = "dem", '1' = "gop", '2' = "gop")) %>%
+  select(-prez_dem, -prez_gop) %>%
+  select(-day)
+```
+
+```{r 2.2, message=FALSE, collapse=TRUE}
+#read in
+snp_df = 
+  read_csv("./data/fivethirtyeight_datasets/snp.csv") %>%
+  separate(col = date, into = c("month", "day", "year"), sep = "/") %>%
+  mutate(month = as.numeric(month),
+         year = as.numeric(year))
+
+# mutate year
+snp19_df = 
+  filter(snp_df, year > 15) %>%
+  mutate(year = year + 1900)
+
+snp20_df = 
+  filter(snp_df, year <= 15) %>%
+  mutate(year = year + 2000)
+
+# in order -- year, month
+snp_df = 
+  merge(snp19_df, snp20_df, all = TRUE) %>%
+  arrange(year, month) %>%
+  mutate(month = month.name[month])
+
+# extract year & month
+year = select(snp_df, year)
+month = select(snp_df, month)
+close = select(snp_df, close)
+
+snp_df = cbind(year, month, close)
+```
+
+```{r 2.3, message=FALSE, collapse=TRUE}
+pols_df_new = 
+  merge(pols_df, snp_df, by = c("year", "month"), all = TRUE)
+
+une_df = 
+  read_csv("./data/fivethirtyeight_datasets/unemployment.csv") %>%
+  janitor::clean_names() %>%
+  pivot_longer(
+    jan:dec,
+    names_to = "month",
+    values_to = "unemployment"
+  ) %>%
+  mutate(month = recode(month, "jan" = "January", "feb" = "February", "mar" = "March", "apr" = "April", "may" = "May", "jun" = "June", "jul" = "July", "aug" = "August", "sep" = "September", "oct" = "October", "nov" = "November", "dec" = "December"))
+une_df = filter(une_df, unemployment >= 0)
+
+pols_df_new2 = merge(pols_df_new, une_df, by = c("year", "month"), all = TRUE)
+```
+
+```{r, message=FALSE, collapse=TRUE}
+skimr::skim(pols_df)
+skimr::skim(snp_df)
+skimr::skim(une_df)
+skimr::skim(pols_df_new2)
+```
+
+In the pols-month dataset, there are 9 columns and 822 rows. The time range is from January, 1947 to June, 2015.     In the snp dataset, there are 3 columns and 787 rows. The time range is from January 1950 to July 2015.     And in the unemployment dataset, there are 810 rows and 3 columns including year, month and unemployment percentage.     After joining the three datasets above, the resulting dataset has 11 columns and 823 rows. The time range is from January 1947 to July 2015. Its columns include year, month, gov_gop, sen_gop, rep_gop, gov_dem, sen_dem, rep_dem, president, close, and unemployment percentage.
+
+## Problem 3
+
+load and tidy
+
+```{r, message=FALSE, collapse=TRUE}
+pbn_df = 
+  read_csv("./data/Popular_Baby_Names.csv") %>%
+  janitor::clean_names() %>%
+  mutate(gender = tolower(gender), 
+         ethnicity = tolower(ethnicity), 
+         childs_first_name = tolower(childs_first_name),
+         ethnicity = recode(ethnicity, 
+                             "asian and pacific islander" = "asian and paci",
+                             "black non hispanic" = "black non hisp",
+                             "white non hispanic" = "white non hisp")) %>%
+  distinct(year_of_birth, gender, ethnicity, childs_first_name, .keep_all = TRUE)
+```
+
+Olivia
+
+```{r, message=FALSE, collapse=TRUE}
+olivia_df = 
+  filter(pbn_df, childs_first_name == "olivia") %>%
+  select(-gender, -childs_first_name, -count) %>%
+  pivot_wider(
+    names_from = "year_of_birth",
+    values_from = "rank"
+  )
+```
+
+The most popular male child name
+
+```{r, message=FALSE, collapse=TRUE}
+male_df = 
+  filter(pbn_df, gender == "male" & rank == 1) %>%
+  select(-gender, -count, -rank) %>%
+  pivot_wider(
+    names_from = "year_of_birth",
+    values_from = "childs_first_name"
+  )
+```
+
+male, white non-hispanic, 2016
+
+```{r, message=FALSE, collapse=TRUE}
+mw16_df = 
+  filter(pbn_df, gender == "male" & ethnicity == "white non hisp" & year_of_birth == 2016) %>%
+  arrange(rank)
+
+ggplot(mw16_df, aes(x = rank, y = count)) + geom_point()
+```
+
