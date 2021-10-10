@@ -23,37 +23,45 @@ the Mr. Trash Wheel sheet
 
 ```{r, message=FALSE, collapse=TRUE}
 # read in
-tw_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "Mr. Trash Wheel")
-
 # clean_name
-tw_df = janitor::clean_names(tw_df)
-
 # omit rows that do not include dumpster-specific data
-tw_df = filter(tw_df, dumpster >= 1 & dumpster != "Grand Total")
-
 # round
-tw_df = mutate(tw_df, sports_balls = round(sports_balls))
+tw_df = 
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "Mr. Trash Wheel") %>%
+  janitor::clean_names() %>%
+  filter(dumpster >= 1 & dumpster != "Grand Total") %>%
+  mutate(sports_balls = round(sports_balls))
+tw_df
 ```
 
 2018 & 2019 Precipitation
 
 ```{r, message=FALSE, collapse=TRUE}
 # read in
-p18_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2018 Precipitation", range = "A2:B14")
-p19_df = read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2019 Precipitation", range = "A2:B14")
-
 # omit rows without precipitation data
-p18_df = filter(p18_df, Total >= 0)
-p19_df = filter(p19_df, Total >= 0)
-
 # add a variable for year
-p18_df = mutate(p18_df, Year = 2018)
-p19_df = mutate(p19_df, Year = 2019)
+
+p18_df = 
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2018 Precipitation", range = "A2:B14") %>%
+  filter(Total >= 0) %>%
+  mutate(Year = 2018)
+p19_df = 
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet = "2019 Precipitation", range = "A2:B14") %>%
+  filter(Total >= 0) %>%
+  mutate(Year = 2019)
+
 
 # combine 2018 & 2019
-p_df = merge(p18_df, p19_df, all = TRUE)
-p_df = arrange(p_df, Year, Month)
-p_df = mutate(p_df, Month = month.name[Month])
+
+p_df = 
+  merge(p18_df, p19_df, all = TRUE) %>%
+  arrange(Year, Month) %>%
+  mutate(Month = month.name[Month]) %>%
+  pivot_wider(
+    names_from = "Year",
+    values_from = "Total"
+  )
+p_df
 ```
 
 ```{r, message=FALSE}
@@ -61,7 +69,7 @@ p_df = mutate(p_df, Month = month.name[Month])
 tw2019_df = filter(tw_df, year == 2019)
 ```
 
-There are `r nrow(p18_df)` rows in precipitation data for 2018 and `r nrow(p19_df)` rows for 2019. The variables include year, month and total. For example, in precipitation data for 2018, the year variable is 2018, the month variable includes 12 months in a year and the total variable is the total number of precipitation for a specific month. The total precipitation in 2018 is `r sum(p18_df$Total)`, and the median number of sports balls in a dumpster in 2019 is `r median(tw2019_df$sports_balls)`.
+There are `r nrow(tw_df)` rows and 17 columns in trash wheel data. And there are `r nrow(p_df)` rows and 3 columns in precipitation resulting data. The variables include 2018 and 2019 and the observations are months in a year. The total precipitation in 2018 is `r sum(p18_df$Total)`, and the median number of sports balls in a dumpster in 2019 is `r median(tw2019_df$sports_balls)`.
 
 
 ## Problem 2
@@ -98,7 +106,7 @@ snp_df =
   arrange(year, month) %>%
   mutate(month = month.name[month])
 
-# extract year & month
+# leading variables -- year & month
 year = select(snp_df, year)
 month = select(snp_df, month)
 close = select(snp_df, close)
@@ -122,13 +130,6 @@ une_df =
 une_df = filter(une_df, unemployment >= 0)
 
 pols_df_new2 = merge(pols_df_new, une_df, by = c("year", "month"), all = TRUE)
-```
-
-```{r, message=FALSE, collapse=TRUE}
-skimr::skim(pols_df)
-skimr::skim(snp_df)
-skimr::skim(une_df)
-skimr::skim(pols_df_new2)
 ```
 
 In the pols-month dataset, there are 9 columns and 822 rows. The time range is from January, 1947 to June, 2015.     In the snp dataset, there are 3 columns and 787 rows. The time range is from January 1950 to July 2015.     And in the unemployment dataset, there are 810 rows and 3 columns including year, month and unemployment percentage.     After joining the three datasets above, the resulting dataset has 11 columns and 823 rows. The time range is from January 1947 to July 2015. Its columns include year, month, gov_gop, sen_gop, rep_gop, gov_dem, sen_dem, rep_dem, president, close, and unemployment percentage.
@@ -161,6 +162,7 @@ olivia_df =
     names_from = "year_of_birth",
     values_from = "rank"
   )
+olivia_df
 ```
 
 The most popular male child name
@@ -173,6 +175,7 @@ male_df =
     names_from = "year_of_birth",
     values_from = "childs_first_name"
   )
+male_df
 ```
 
 male, white non-hispanic, 2016
